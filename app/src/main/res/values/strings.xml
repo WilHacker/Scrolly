@@ -1,3 +1,22 @@
 <resources>
     <string name="app_name">Scrolly</string>
+
+    <!-- Home -->
+    <string name="home_collections">Colecciones</string>
+    <string name="home_all_videos">Todos</string>
+    <string name="home_favorites">Favoritos</string>
+    <string name="home_local_folders">Carpetas Locales</string>
+    <string name="home_no_folders">No se encontraron carpetas.</string>
+    <string name="home_loading">Buscando videos…</string>
+    <string name="home_grant_permission">Conceder Permisos</string>
+
+    <!-- Galería -->
+    <string name="gallery_title_all">Todos los Videos</string>
+    <string name="gallery_title_favorites">Favoritos ❤️</string>
+    <string name="gallery_empty">No hay videos aquí aún.</string>
+
+    <!-- Feed -->
+    <string name="feed_empty">No se encontraron videos</string>
+    <string name="feed_video_error">No se pudo reproducir este video (formato no soportado)</string>
+    <string name="action_back">Volver</string>
 </resources>
