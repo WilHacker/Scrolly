@@ -2,23 +2,21 @@ package com.almendras.scrolly.features.feed.ui.gallery
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,7 +24,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -37,7 +37,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -59,10 +58,12 @@ fun GalleryScreen(
     viewModel: FeedViewModel,
     filterType: VideoFilterType,
     filterValue: String,
+    scrollToIndex: Int = -1,
     onVideoClick: (Int) -> Unit,
     onNavigateBack: () -> Unit
 ) {
     val videos by viewModel.videos.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     val imageLoader = remember {
@@ -73,6 +74,15 @@ fun GalleryScreen(
 
     val filteredVideos = remember(videos, filterType, filterValue) {
         videos.applyFilter(filterType, filterValue)
+    }
+
+    val gridState = rememberLazyGridState()
+
+    // Al volver del feed, saltar al video donde quedaste
+    LaunchedEffect(scrollToIndex) {
+        if (scrollToIndex in filteredVideos.indices) {
+            gridState.scrollToItem(scrollToIndex)
+        }
     }
 
     val screenTitle = when (filterType) {
@@ -99,25 +109,29 @@ fun GalleryScreen(
         },
         containerColor = Color.Black
     ) { paddingValues ->
-        if (filteredVideos.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(stringResource(R.string.gallery_empty), color = Color.Gray)
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(paddingValues),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-            ) {
-                items(filteredVideos, key = { it.id }) { video ->
-                    // El índice navegado es DENTRO de la lista filtrada: el feed
-                    // reproduce solo los videos de esta galería.
-                    VideoListItem(video = video, imageLoader = imageLoader) {
-                        onVideoClick(filteredVideos.indexOf(video))
+        PullToRefreshBox(
+            isRefreshing = isLoading,
+            onRefresh = { viewModel.loadVideos() },
+            modifier = Modifier.fillMaxSize().padding(paddingValues)
+        ) {
+            if (filteredVideos.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(stringResource(R.string.gallery_empty), color = Color.Gray)
+                }
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                    state = gridState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    itemsIndexed(filteredVideos, key = { _, video -> video.id }) { index, video ->
+                        VideoGridItem(video = video, imageLoader = imageLoader) {
+                            onVideoClick(index)
+                        }
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
         }
@@ -125,64 +139,64 @@ fun GalleryScreen(
 }
 
 @Composable
-private fun VideoListItem(video: VideoItem, imageLoader: ImageLoader, onClick: () -> Unit) {
-    Row(
+private fun VideoGridItem(video: VideoItem, imageLoader: ImageLoader, onClick: () -> Unit) {
+    Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        verticalAlignment = Alignment.CenterVertically
+            .aspectRatio(9f / 16f)
+            .clip(RoundedCornerShape(4.dp))
+            .background(Color.DarkGray.copy(alpha = 0.4f))
+            .clickable { onClick() }
     ) {
-        Box(
-            modifier = Modifier
-                .size(width = 120.dp, height = 70.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(Color.DarkGray)
-        ) {
-            SubcomposeAsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(video.uri)
-                    .crossfade(true)
-                    .build(),
-                imageLoader = imageLoader,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-                loading = {
-                    Box(modifier = Modifier.fillMaxSize().shimmerEffect())
-                }
-            )
-            Box(
-                modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Filled.PlayArrow,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(32.dp)
-                )
+        SubcomposeAsyncImage(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(video.uri)
+                .crossfade(true)
+                .build(),
+            imageLoader = imageLoader,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+            loading = {
+                Box(modifier = Modifier.fillMaxSize().shimmerEffect())
             }
-        }
+        )
 
-        Spacer(modifier = Modifier.width(16.dp))
+        // Badge de duración (abajo a la derecha)
+        Text(
+            text = formatDuration(video.duration),
+            color = Color.White,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(4.dp)
+                .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
+                .padding(horizontal = 4.dp, vertical = 1.dp)
+        )
 
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = video.name,
-                color = Color.White,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+        // Corazón si es favorito (arriba a la derecha)
+        if (video.isFavorite) {
+            Icon(
+                Icons.Filled.Favorite,
+                contentDescription = null,
+                tint = Color(0xFFE91E63),
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(4.dp)
+                    .size(14.dp)
             )
-            Spacer(modifier = Modifier.height(4.dp))
-
-            val durationSeconds = video.duration / 1000
-            val formattedDuration = String.format(
-                Locale.getDefault(), "%02d:%02d", durationSeconds / 60, durationSeconds % 60
-            )
-
-            Text(text = formattedDuration, color = Color.Gray, fontSize = 14.sp)
         }
+    }
+}
+
+private fun formatDuration(durationMs: Long): String {
+    val totalSeconds = durationMs / 1000
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+    return if (hours > 0) {
+        String.format(Locale.getDefault(), "%d:%02d:%02d", hours, minutes, seconds)
+    } else {
+        String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
     }
 }

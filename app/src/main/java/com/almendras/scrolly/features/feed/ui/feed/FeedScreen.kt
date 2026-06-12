@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -33,6 +34,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
@@ -99,6 +101,7 @@ fun FeedScreen(
     filterType: VideoFilterType,
     filterValue: String,
     initialPage: Int = 0,
+    onPageViewed: (Int) -> Unit = {},
     onNavigateBack: () -> Unit
 ) {
     val allVideos by viewModel.videos.collectAsStateWithLifecycle()
@@ -161,6 +164,7 @@ fun FeedScreen(
                 initialPage = initialPage,
                 playerPool = playerPool,
                 onToggleFavorite = viewModel::toggleFavorite,
+                onPageViewed = onPageViewed,
                 onNavigateBack = onNavigateBack
             )
         }
@@ -173,6 +177,7 @@ private fun FeedPager(
     initialPage: Int,
     playerPool: PlayerPool,
     onToggleFavorite: (VideoItem) -> Unit,
+    onPageViewed: (Int) -> Unit,
     onNavigateBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -205,6 +210,7 @@ private fun FeedPager(
         snapshotFlow { pagerState.currentPage }.collect { page ->
             isPlaying = true
             PlayerManager.activePlayer = playerPool.playerFor(page)
+            onPageViewed(page)
         }
     }
 
@@ -347,10 +353,15 @@ private fun FeedPage(
 
     // Si el formato/códec no se puede reproducir, avisar en vez de quedar en negro
     var playbackError by remember(video.uri) { mutableStateOf(false) }
+    var isBuffering by remember(video.uri) { mutableStateOf(false) }
     DisposableEffect(player, video.uri) {
         val listener = object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
                 playbackError = true
+            }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                isBuffering = playbackState == Player.STATE_BUFFERING
             }
         }
         player.addListener(listener)
@@ -416,6 +427,15 @@ private fun FeedPage(
                 else { isLeftPanelOpen = true; isUiVisible = true }
             }
         )
+
+        // Spinner discreto si el video tarda en arrancar
+        if (isActive && isBuffering && !playbackError) {
+            CircularProgressIndicator(
+                color = Color.White.copy(alpha = 0.7f),
+                strokeWidth = 2.dp,
+                modifier = Modifier.align(Alignment.Center).size(36.dp)
+            )
+        }
 
         if (playbackError) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
