@@ -71,6 +71,7 @@ dependencies {
     implementation(libs.media3.ui)
     implementation(libs.media3.common)
     implementation(libs.media3.session)
+    implementation(libs.jellyfin.media3.ffmpeg.decoder)
 
     // --- COIL (miniaturas de video) ---
     implementation(libs.coil.compose)

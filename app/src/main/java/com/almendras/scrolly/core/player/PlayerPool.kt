@@ -6,6 +6,7 @@ import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import kotlin.math.abs
 
@@ -70,7 +71,12 @@ class PlayerPool(context: Context, private val capacity: Int = 6) {
             )
             .build()
 
-        return ExoPlayer.Builder(appContext)
+        // Decoders FFmpeg (Jellyfin) como respaldo: si el hardware del dispositivo
+        // no soporta el códec (AC3, DTS, Vorbis...), decodifica por software
+        val renderersFactory = DefaultRenderersFactory(appContext)
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+
+        return ExoPlayer.Builder(appContext, renderersFactory)
             .setLoadControl(loadControl)
             .build()
             .apply {
