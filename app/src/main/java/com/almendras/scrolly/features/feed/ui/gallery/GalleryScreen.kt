@@ -42,9 +42,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.ImageLoader
 import coil.compose.SubcomposeAsyncImage
-import coil.decode.VideoFrameDecoder
 import coil.request.ImageRequest
 import com.almendras.scrolly.R
+import com.almendras.scrolly.ScrollyApp
 import com.almendras.scrolly.core.ui.components.shimmerEffect
 import com.almendras.scrolly.features.feed.domain.model.VideoFilterType
 import com.almendras.scrolly.features.feed.domain.model.VideoItem
@@ -66,10 +66,9 @@ fun GalleryScreen(
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
+    // Loader singleton: las miniaturas ya cargadas quedan en caché entre pantallas
     val imageLoader = remember {
-        ImageLoader.Builder(context)
-            .components { add(VideoFrameDecoder.Factory()) }
-            .build()
+        (context.applicationContext as ScrollyApp).container.imageLoader
     }
 
     val filteredVideos = remember(videos, filterType, filterValue) {
